@@ -1,0 +1,97 @@
+/* === Toast Container Position === */
+.Toastify__toast-container {
+  top: 1.2rem !important;
+  z-index: 9999;
+}
+
+/* === Base Toast Style === */
+.Toastify__toast {
+  border-radius: 14px !important;
+  padding: 14px 18px !important;
+  font-family: "Poppins", sans-serif;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(6px);
+  min-height: auto !important;
+}
+
+/* === Toast Body === */
+.Toastify__toast-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+/* === Success Toast === */
+.Toastify__toast--success {
+  background: linear-gradient(135deg, #00eaff, #00b8d4) !important;
+  color: #002b30 !important;
+}
+
+/* === Error Toast === */
+.Toastify__toast--error {
+  background: linear-gradient(135deg, #ff5f5f, #e53935) !important;
+  color: #fff !important;
+}
+
+/* === Close Button === */
+.Toastify__close-button {
+  color: inherit !important;
+  opacity: 0.7;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1;
+}
+
+/* === Progress Bar === */
+.Toastify__progress-bar {
+  height: 3px !important;
+  border-radius: 0 0 14px 14px;
+}
+
+.Toastify__progress-bar--success {
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+
+.Toastify__progress-bar--error {
+  background: rgba(255, 255, 255, 0.4) !important;
+}
+/* ABSENT CARD */
+.absent-card {
+  border-left: 6px solid #dc2626;
+  background: linear-gradient(135deg, #fff1f2, #ffe4e6);
+}
+
+.absent-title {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.absent-text {
+  color: #7f1d1d;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Optional badge look */
+.absent-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: #fecaca;
+  color: #7f1d1d;
+  font-weight: 700;
+  font-size: 13px;
+}
+.apology-card {
+  border-left: 6px solid #6366f1;
+  background: #eef2ff;
+}
+
+.apology-title {
+  color: #4338ca;
+  font-weight: 700;
+}
