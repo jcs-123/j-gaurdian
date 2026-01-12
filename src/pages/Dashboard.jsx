@@ -42,7 +42,7 @@ useEffect(() => {
 
       const notificationsList = [];
 
-      // MESSCUT
+      /* ===================== MESSCUT ===================== */
       const messcutRes = await fetch(
         `https://fredbox-backend.onrender.com/messcut/student?admissionNo=${parentUser.admissionNumber}`
       );
@@ -59,36 +59,69 @@ useEffect(() => {
             parentStatus: item.parentStatus,
             adminStatus: item.status,
             createdAt: item.createdAt,
-              priorityDate: item.createdAt, // ✅
+            priorityDate: item.createdAt,
           });
         });
       }
 
-      // ABSENT
+      /* ===================== TODAY ABSENT ===================== */
+      const todayDate = new Date().toISOString().split("T")[0];
+
       const attendanceRes = await fetch(
         `https://fredbox-backend.onrender.com/attendance/parent/today?admissionNumber=${parentUser.admissionNumber}`
       );
       const attendanceData = await attendanceRes.json();
 
-      if (attendanceData.success && attendanceData.absent) {
+      if (
+        attendanceData?.success === true &&
+        attendanceData?.published === "published" &&
+        attendanceData?.absent === true &&
+        attendanceData?.data?.date
+      ) {
         notificationsList.push({
-          id: "absent-today",
+          id: `absent-${attendanceData.data.date}`, // ✅ same format
           type: "absent",
           date: attendanceData.data.date,
           reason: "Student is absent today",
-          createdAt: new Date().toISOString(),
-           priorityDate: new Date().toISOString(), // ✅
+          createdAt: attendanceData.data.date,
+          priorityDate: attendanceData.data.date,
         });
       }
 
-      // 🔥 MERGE — NOT OVERWRITE
+      /* ===================== PAST ABSENT HISTORY ===================== */
+      const historyRes = await fetch(
+        `https://fredbox-backend.onrender.com/attendance/parent/history?admissionNumber=${parentUser.admissionNumber}`
+      );
+      const historyData = await historyRes.json();
+
+      if (historyData?.success === true && Array.isArray(historyData.data)) {
+        historyData.data.forEach(date => {
+          // 🚫 exclude today
+          if (!date || date === todayDate) return;
+
+          notificationsList.push({
+            id: `absent-${date}`, // ✅ one per date
+            type: "absent",
+            date,
+            reason: "Student was absent",
+            createdAt: date,
+            priorityDate: date,
+          });
+        });
+      }
+
+      /* ===================== MERGE SAFELY ===================== */
       setNotifications(prev => {
         const merged = [...prev, ...notificationsList];
+
+        // remove duplicates by id
         const unique = merged.filter(
           (v, i, a) => a.findIndex(t => t.id === v.id) === i
         );
+
+        // latest first
         return unique.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+          (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
         );
       });
 
@@ -99,6 +132,7 @@ useEffect(() => {
 
   fetchNotifications();
 }, []);
+
 
 useEffect(() => {
   const fetchApologyNotifications = async () => {
