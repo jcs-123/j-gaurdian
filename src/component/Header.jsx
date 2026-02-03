@@ -13,6 +13,8 @@ function Header() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 const [loading, setLoading] = useState(false);
+const API_FREDBOX = "https://fredbox-backend.onrender.com";
+const API_MIM = "https://mim-backend-b5cd.onrender.com";
 
   // ✅ Read from localStorage
   const parentUser = JSON.parse(localStorage.getItem("parentUser")) || {};
@@ -179,54 +181,89 @@ const { username } = parentUser;
   };
 
   /* CHANGE PASSWORD (Frontend validation only) */
- const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error("All fields are required ❌");
-      return;
-    }
+/* CHANGE PASSWORD – SIM FIRST, THEN MIM */
+const handleChangePassword = async () => {
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    toast.error("All fields are required ❌");
+    return;
+  }
 
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match ❌");
-      return;
-    }
+  if (newPassword !== confirmPassword) {
+    toast.error("Passwords do not match ❌");
+    return;
+  }
 
-    if (!username) {
-      toast.error("Session expired. Please login again ❌");
-      handleLogout();
-      return;
-    }
+  if (!username) {
+    toast.error("Session expired. Please login again ❌");
+    handleLogout();
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
+  try {
+    /* ==========================
+       1️⃣ TRY SIM / FREDBOX FIRST
+    ========================== */
     try {
-      const res = await axios.post(
-        `https://fredbox-backend.onrender.com/api/parent/change-password`,
+      const fredboxRes = await axios.post(
+        `${API_FREDBOX}/api/parent/change-password`,
         {
-          username,          // ✅ username matched correctly
+          username,
           currentPassword,
           newPassword,
         }
       );
 
-      if (res.data.success) {
-        toast.success("Password updated successfully ✅");
-
-        setShowPasswordFields(false);
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      } else {
-        toast.error(res.data.message || "Password update failed ❌");
+      if (fredboxRes.data?.success) {
+        toast.success("Password updated successfully (SIM) ✅");
+        resetPasswordState();
+        return; // 🛑 STOP HERE
       }
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message ||
-          "Server error. Please try again ❌"
-      );
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      // ❗ SIM failed → silently move to MIM
+      console.warn("SIM password change failed, trying MIM...");
     }
-  };
+
+    /* ==========================
+       2️⃣ TRY MIM (FALLBACK)
+    ========================== */
+    const mimRes = await axios.post(
+      `${API_MIM}/api/parent/change-password`,
+      {
+        username,
+        currentPassword,
+        newPassword,
+      }
+    );
+
+    if (mimRes.data?.success) {
+      toast.success("Password updated successfully (MIM) ✅");
+      resetPasswordState();
+      return;
+    }
+
+    throw new Error("Password update failed in both systems");
+
+  } catch (error) {
+    toast.error(
+      error.response?.data?.message ||
+        "Password update failed ❌"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+/* 🔄 Common reset helper */
+const resetPasswordState = () => {
+  setShowPasswordFields(false);
+  setCurrentPassword("");
+  setNewPassword("");
+  setConfirmPassword("");
+};
+
+
 
   return (
     <>

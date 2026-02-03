@@ -11,10 +11,8 @@ function Login() {
   const navigate = useNavigate();
 
   // 🔗 Backend URL
-  const API_BASE =
-    window.location.hostname === "localhost"
-      ? "https://fredbox-backend.onrender.com"
-      : "https://YOUR_RENDER_BACKEND.onrender.com";
+const API_FREDBOX = "https://fredbox-backend.onrender.com";
+const API_MIM = "https://mim-backend-b5cd.onrender.com";
 
   /* Inject CSS */
   useEffect(() => {
@@ -66,52 +64,67 @@ function Login() {
   }, []);
 
   // 🔐 LOGIN
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      const res = await axios.post(`${API_BASE}/api/parent/login`, {
-        username,
-        password,
-      });
+  try {
+    const [fredboxRes, mimRes] = await Promise.allSettled([
+      axios.post(`${API_FREDBOX}/api/parent/login`, { username, password }),
+      axios.post(`${API_MIM}/api/parent/login`, { username, password }),
+    ]);
 
- if (res.data.success) {
-  const user = res.data.user;
+    let res = null;
+    let source = "";
 
-  // ✅ FORCE username into stored object
-  const parentUser = {
-    username, // 👈 taken directly from login input
-    ...user,
-  };
-
-  localStorage.setItem("parentLoggedIn", "true");
-  localStorage.setItem("parentUser", JSON.stringify(parentUser));
-
-  toast.success("Welcome back! Login successful.", {
-    position: "top-center",
-    autoClose: 2000,
-  });
-
-  setTimeout(() => {
-    navigate("/dashboard");
-  }, 1000);
-}
-
-    } catch (error) {
-    toast.error(
-  error.response?.data?.message || "Invalid username or password",
-  {
-    position: "top-center",
-    autoClose: 2500,
-    hideProgressBar: false,
-  }
-);
-
-    } finally {
-      setLoading(false);
+    // ✅ Check Fredbox first
+    if (fredboxRes.status === "fulfilled" && fredboxRes.value.data.success) {
+      res = fredboxRes.value;
+      source = "fredbox";
     }
-  };
+    // ✅ Else check MIM
+    else if (mimRes.status === "fulfilled" && mimRes.value.data.success) {
+      res = mimRes.value;
+      source = "mim";
+    } else {
+      throw new Error("Invalid username or password");
+    }
+
+    const user = res.data.user;
+
+    // ✅ FORCE username into stored object
+    const parentUser = {
+      username,           // 👈 from login input
+      sourceBackend: source,
+      ...user,
+    };
+
+    localStorage.setItem("parentLoggedIn", "true");
+    localStorage.setItem("parentUser", JSON.stringify(parentUser));
+
+    toast.success(`Welcome back! Login successful `, {
+      position: "top-center",
+      autoClose: 2000,
+    });
+
+    setTimeout(() => {
+      navigate("/dashboard");
+    }, 1000);
+
+  } catch (error) {
+    toast.error(
+      error.response?.data?.message || "Invalid username or password",
+      {
+        position: "top-center",
+        autoClose: 2500,
+        hideProgressBar: false,
+      }
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <>
