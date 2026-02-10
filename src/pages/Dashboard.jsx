@@ -4,6 +4,7 @@ function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const [activeFilter, setActiveFilter] = useState("all");
   const [feeInfo, setFeeInfo] = useState(null);
+  const [apologyCount, setApologyCount] = useState(0); // New state for apology count
 
   // ===============================
   // MESSCUT DAY CALCULATION
@@ -26,348 +27,345 @@ function Dashboard() {
   // ===============================
   // FETCH OUTING REQUESTS
   // ===============================
-useEffect(() => {
-  const fetchOutingRequests = async () => {
-    try {
-      const parentUser = JSON.parse(localStorage.getItem("parentUser"));
-      if (!parentUser?.admissionNumber) return;
+  useEffect(() => {
+    const fetchOutingRequests = async () => {
+      try {
+        const parentUser = JSON.parse(localStorage.getItem("parentUser"));
+        if (!parentUser?.admissionNumber) return;
 
-      const admissionNo = parentUser.admissionNumber;
+        const admissionNo = parentUser.admissionNumber;
 
-      const [fredboxRes, mimRes] = await Promise.allSettled([
-        fetch(
-          `https://fredbox-backend.onrender.com/outing/student/${admissionNo}`
-        ),
-        fetch(
-          `https://mim-backend-b5cd.onrender.com/outing/student/${admissionNo}`
-        ),
-      ]);
+        const [fredboxRes, mimRes] = await Promise.allSettled([
+          fetch(
+            `https://fredbox-backend.onrender.com/outing/student/${admissionNo}`
+          ),
+          fetch(
+            `https://mim-backend-b5cd.onrender.com/outing/student/${admissionNo}`
+          ),
+        ]);
 
-      let allOutings = [];
+        let allOutings = [];
 
-      // ✅ Fredbox response
-      if (fredboxRes.status === "fulfilled") {
-        const data = await fredboxRes.value.json();
-        if (data.success && Array.isArray(data.data)) {
-          allOutings = [...allOutings, ...data.data];
+        // ✅ Fredbox response
+        if (fredboxRes.status === "fulfilled") {
+          const data = await fredboxRes.value.json();
+          if (data.success && Array.isArray(data.data)) {
+            allOutings = [...allOutings, ...data.data];
+          }
         }
-      }
 
-      // ✅ MIM response
-      if (mimRes.status === "fulfilled") {
-        const data = await mimRes.value.json();
-        if (data.success && Array.isArray(data.data)) {
-          allOutings = [...allOutings, ...data.data];
+        // ✅ MIM response
+        if (mimRes.status === "fulfilled") {
+          const data = await mimRes.value.json();
+          if (data.success && Array.isArray(data.data)) {
+            allOutings = [...allOutings, ...data.data];
+          }
         }
-      }
 
-      const outingNotifications = allOutings.map((item) => {
-        const outingDate = new Date(item.date);
-        const formattedDate = outingDate.toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
+        const outingNotifications = allOutings.map((item) => {
+          const outingDate = new Date(item.date);
+          const formattedDate = outingDate.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+
+          return {
+            id: `outing-${item._id}`,
+            type: "outing",
+            date: formattedDate,
+            outingDate: item.date,
+            leavingTime: item.leavingTime,
+            returningTime: item.returningTime,
+            reason: item.reason,
+            studentName: item.studentName,
+            parentStatus: item.parentStatus,
+            adminStatus: item.adminStatus,
+            createdAt: item.createdAt,
+            priorityDate: item.createdAt,
+          };
         });
 
-        return {
-          id: `outing-${item._id}`,
-          type: "outing",
-          date: formattedDate,
-          outingDate: item.date,
-          leavingTime: item.leavingTime,
-          returningTime: item.returningTime,
-          reason: item.reason,
-          studentName: item.studentName,
-          parentStatus: item.parentStatus,
-          adminStatus: item.adminStatus,
-          createdAt: item.createdAt,
-          priorityDate: item.createdAt,
-        };
-      });
+        setNotifications((prev) => {
+          const merged = [...prev, ...outingNotifications];
+          const unique = merged.filter(
+            (v, i, a) => a.findIndex((t) => t.id === v.id) === i
+          );
+          return unique.sort(
+            (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
+          );
+        });
+      } catch (err) {
+        console.error("❌ Outing request fetch error:", err);
+      }
+    };
 
-      setNotifications((prev) => {
-        const merged = [...prev, ...outingNotifications];
-        const unique = merged.filter(
-          (v, i, a) => a.findIndex((t) => t.id === v.id) === i
-        );
-        return unique.sort(
-          (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
-        );
-      });
-
-    } catch (err) {
-      console.error("❌ Outing request fetch error:", err);
-    }
-  };
-
-  fetchOutingRequests();
-}, []);
-
+    fetchOutingRequests();
+  }, []);
 
   // ===============================
   // FETCH MESSCUT REQUESTS
   // ===============================
-useEffect(() => {
-  const fetchNotifications = async () => {
-    try {
-      const parentUser = JSON.parse(localStorage.getItem("parentUser"));
-      if (!parentUser?.admissionNumber) return;
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const parentUser = JSON.parse(localStorage.getItem("parentUser"));
+        if (!parentUser?.admissionNumber) return;
 
-      const admissionNo = parentUser.admissionNumber;
-      const todayDate = new Date().toISOString().split("T")[0];
-      const notificationsList = [];
+        const admissionNo = parentUser.admissionNumber;
+        const todayDate = new Date().toISOString().split("T")[0];
+        const notificationsList = [];
 
-      /* ===================== MESSCUT (TWO BACKENDS) ===================== */
-      const [fredboxMesscut, mimMesscut] = await Promise.allSettled([
-        fetch(
-          `https://fredbox-backend.onrender.com/messcut/student?admissionNo=${admissionNo}`
-        ),
-        fetch(
-          `https://mim-backend-b5cd.onrender.com/messcut/student?admissionNo=${admissionNo}`
-        ),
-      ]);
+        /* ===================== MESSCUT (TWO BACKENDS) ===================== */
+        const [fredboxMesscut, mimMesscut] = await Promise.allSettled([
+          fetch(
+            `https://fredbox-backend.onrender.com/messcut/student?admissionNo=${admissionNo}`
+          ),
+          fetch(
+            `https://mim-backend-b5cd.onrender.com/messcut/student?admissionNo=${admissionNo}`
+          ),
+        ]);
 
-      for (const res of [fredboxMesscut, mimMesscut]) {
-        if (res.status === "fulfilled") {
-          const data = await res.value.json();
-          if (data.success && Array.isArray(data.data)) {
-            data.data.forEach((item) => {
-              notificationsList.push({
-                id: `messcut-${item._id}`,
-                type: "messcut",
-                leavingDate: item.leavingDate,
-                returnDate: item.returningDate,
-                reason: item.reason,
-                parentStatus: item.parentStatus,
-                adminStatus: item.status,
-                createdAt: item.createdAt,
-                priorityDate: item.createdAt,
+        for (const res of [fredboxMesscut, mimMesscut]) {
+          if (res.status === "fulfilled") {
+            const data = await res.value.json();
+            if (data.success && Array.isArray(data.data)) {
+              data.data.forEach((item) => {
+                notificationsList.push({
+                  id: `messcut-${item._id}`,
+                  type: "messcut",
+                  leavingDate: item.leavingDate,
+                  returnDate: item.returningDate,
+                  reason: item.reason,
+                  parentStatus: item.parentStatus,
+                  adminStatus: item.status,
+                  createdAt: item.createdAt,
+                  priorityDate: item.createdAt,
+                });
               });
-            });
+            }
           }
         }
-      }
 
-      /* ===================== TODAY ABSENT (TWO BACKENDS) ===================== */
-      const [fredboxToday, mimToday] = await Promise.allSettled([
-        fetch(
-          `https://fredbox-backend.onrender.com/attendance/parent/today?admissionNumber=${admissionNo}`
-        ),
-        fetch(
-          `https://mim-backend-b5cd.onrender.com/attendance/parent/today?admissionNumber=${admissionNo}`
-        ),
-      ]);
+        /* ===================== TODAY ABSENT (TWO BACKENDS) ===================== */
+        const [fredboxToday, mimToday] = await Promise.allSettled([
+          fetch(
+            `https://fredbox-backend.onrender.com/attendance/parent/today?admissionNumber=${admissionNo}`
+          ),
+          fetch(
+            `https://mim-backend-b5cd.onrender.com/attendance/parent/today?admissionNumber=${admissionNo}`
+          ),
+        ]);
 
-      for (const res of [fredboxToday, mimToday]) {
-        if (res.status === "fulfilled") {
-          const data = await res.value.json();
-          if (
-            data?.success === true &&
-            data?.published === "published" &&
-            data?.absent === true &&
-            data?.data?.date
-          ) {
-            notificationsList.push({
-              id: `absent-${data.data.date}`,
-              type: "absent",
-              date: data.data.date,
-              reason: "Student is absent today",
-              createdAt: data.data.date,
-              priorityDate: data.data.date,
-            });
-          }
-        }
-      }
-
-      /* ===================== PAST ABSENT HISTORY (TWO BACKENDS) ===================== */
-      const [fredboxHistory, mimHistory] = await Promise.allSettled([
-        fetch(
-          `https://fredbox-backend.onrender.com/attendance/parent/history?admissionNumber=${admissionNo}`
-        ),
-        fetch(
-          `https://mim-backend-b5cd.onrender.com/attendance/parent/history?admissionNumber=${admissionNo}`
-        ),
-      ]);
-
-      for (const res of [fredboxHistory, mimHistory]) {
-        if (res.status === "fulfilled") {
-          const data = await res.value.json();
-          if (data?.success === true && Array.isArray(data.data)) {
-            data.data.forEach((date) => {
-              if (!date || date === todayDate) return;
-
+        for (const res of [fredboxToday, mimToday]) {
+          if (res.status === "fulfilled") {
+            const data = await res.value.json();
+            if (
+              data?.success === true &&
+              data?.published === "published" &&
+              data?.absent === true &&
+              data?.data?.date
+            ) {
               notificationsList.push({
-                id: `absent-${date}`,
+                id: `absent-${data.data.date}`,
                 type: "absent",
-                date,
-                reason: "Student was absent",
-                createdAt: date,
-                priorityDate: date,
+                date: data.data.date,
+                reason: "Student is absent today",
+                createdAt: data.data.date,
+                priorityDate: data.data.date,
               });
-            });
+            }
           }
         }
+
+        /* ===================== PAST ABSENT HISTORY (TWO BACKENDS) ===================== */
+        const [fredboxHistory, mimHistory] = await Promise.allSettled([
+          fetch(
+            `https://fredbox-backend.onrender.com/attendance/parent/history?admissionNumber=${admissionNo}`
+          ),
+          fetch(
+            `https://mim-backend-b5cd.onrender.com/attendance/parent/history?admissionNumber=${admissionNo}`
+          ),
+        ]);
+
+        for (const res of [fredboxHistory, mimHistory]) {
+          if (res.status === "fulfilled") {
+            const data = await res.value.json();
+            if (data?.success === true && Array.isArray(data.data)) {
+              data.data.forEach((date) => {
+                if (!date || date === todayDate) return;
+
+                notificationsList.push({
+                  id: `absent-${date}`,
+                  type: "absent",
+                  date,
+                  reason: "Student was absent",
+                  createdAt: date,
+                  priorityDate: date,
+                });
+              });
+            }
+          }
+        }
+
+        /* ===================== MERGE SAFELY ===================== */
+        setNotifications((prev) => {
+          const merged = [...prev, ...notificationsList];
+          const unique = merged.filter(
+            (v, i, a) => a.findIndex((t) => t.id === v.id) === i
+          );
+          return unique.sort(
+            (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
+          );
+        });
+      } catch (err) {
+        console.error("❌ Notification fetch error", err);
       }
+    };
 
-      /* ===================== MERGE SAFELY ===================== */
-      setNotifications((prev) => {
-        const merged = [...prev, ...notificationsList];
-        const unique = merged.filter(
-          (v, i, a) => a.findIndex((t) => t.id === v.id) === i
-        );
-        return unique.sort(
-          (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
-        );
-      });
-
-    } catch (err) {
-      console.error("❌ Notification fetch error", err);
-    }
-  };
-
-  fetchNotifications();
-}, []);
-
+    fetchNotifications();
+  }, []);
 
   // ===============================
-  // FETCH APOLOGY REQUESTS
+  // FETCH APOLOGY REQUESTS (CORRECTED)
   // ===============================
- useEffect(() => {
-  const fetchApologyNotifications = async () => {
-    try {
-      const parentUser = JSON.parse(localStorage.getItem("parentUser"));
-      if (!parentUser?.admissionNumber) return;
+  useEffect(() => {
+    const fetchApologyNotifications = async () => {
+      try {
+        const parentUser = JSON.parse(localStorage.getItem("parentUser"));
+        if (!parentUser?.admissionNumber) return;
 
-      const admissionNo = parentUser.admissionNumber;
+        const admissionNo = parentUser.admissionNumber;
 
-      const [fredboxRes, mimRes] = await Promise.allSettled([
-        fetch(
-          `https://fredbox-backend.onrender.com/by-student/apologyadmison?admissionNo=${admissionNo}`
-        ),
-        fetch(
-          `https://mim-backend-b5cd.onrender.com/by-student/apologyadmison?admissionNo=${admissionNo}`
-        ),
-      ]);
+        const [fredboxRes, mimRes] = await Promise.allSettled([
+          fetch(
+            `https://fredbox-backend.onrender.com/by-student/apologyadmison?admissionNo=${admissionNo}`
+          ),
+          fetch(
+            `https://mim-backend-b5cd.onrender.com/by-student/apologyadmison?admissionNo=${admissionNo}`
+          ),
+        ]);
 
-      let allApologies = [];
+        let allApologies = [];
 
-      // ✅ Fredbox response
-      if (fredboxRes.status === "fulfilled") {
-        const data = await fredboxRes.value.json();
-        if (data.success && Array.isArray(data.data)) {
-          allApologies = [...allApologies, ...data.data];
+        // ✅ Fredbox response
+        if (fredboxRes.status === "fulfilled") {
+          const data = await fredboxRes.value.json();
+          if (data.success && Array.isArray(data.data)) {
+            allApologies = [...allApologies, ...data.data];
+          }
         }
-      }
 
-      // ✅ MIM response
-      if (mimRes.status === "fulfilled") {
-        const data = await mimRes.value.json();
-        if (data.success && Array.isArray(data.data)) {
-          allApologies = [...allApologies, ...data.data];
+        // ✅ MIM response
+        if (mimRes.status === "fulfilled") {
+          const data = await mimRes.value.json();
+          if (data.success && Array.isArray(data.data)) {
+            allApologies = [...allApologies, ...data.data];
+          }
         }
+
+        console.log("🟣 Combined Apology API Data:", allApologies);
+
+        // Update apology count
+        setApologyCount(allApologies.length);
+
+        const apologyNotifications = allApologies.map((item) => ({
+          id: `apology-${item._id}`,
+          type: "apology",
+          reason: item.reason,
+          status: item.status,
+          createdAt: item.createdAt,
+          date: new Date(item.createdAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+          priorityDate: item.createdAt,
+        }));
+
+        setNotifications((prev) => {
+          // Remove existing apology notifications first
+          const filteredPrev = prev.filter((n) => n.type !== "apology");
+          const merged = [...filteredPrev, ...apologyNotifications];
+          const unique = merged.filter(
+            (v, i, a) => a.findIndex((t) => t.id === v.id) === i
+          );
+          return unique.sort(
+            (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
+          );
+        });
+      } catch (err) {
+        console.error("❌ Apology notification error:", err);
       }
+    };
 
-      console.log("🟣 Combined Apology API Data:", allApologies);
-
-      const apologyNotifications = allApologies.map((item) => ({
-        id: `apology-${item._id}`,
-        type: "apology",
-        reason: item.reason,
-        status: item.status,
-        createdAt: item.createdAt,
-        date: new Date(item.createdAt).toLocaleDateString("en-IN"),
-        priorityDate: item.createdAt,
-      }));
-
-      setNotifications((prev) => {
-        const merged = [...prev, ...apologyNotifications];
-        const unique = merged.filter(
-          (v, i, a) => a.findIndex((t) => t.id === v.id) === i
-        );
-        return unique.sort(
-          (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
-        );
-      });
-
-    } catch (err) {
-      console.error("❌ Apology notification error:", err);
-    }
-  };
-
-  fetchApologyNotifications();
-}, []);
-
+    fetchApologyNotifications();
+  }, []);
 
   // ===============================
   // FETCH FEE DETAILS
   // ===============================
-useEffect(() => {
-  const fetchFeeDetails = async () => {
-    try {
-      const parentUser = JSON.parse(localStorage.getItem("parentUser"));
-      if (!parentUser?.admissionNumber) return;
+  useEffect(() => {
+    const fetchFeeDetails = async () => {
+      try {
+        const parentUser = JSON.parse(localStorage.getItem("parentUser"));
+        if (!parentUser?.admissionNumber) return;
 
-      const admissionNo = parentUser.admissionNumber;
+        const admissionNo = parentUser.admissionNumber;
 
-      const [fredboxRes, mimRes] = await Promise.allSettled([
-        fetch(
-          `https://fredbox-backend.onrender.com/fees/get/${admissionNo}`
-        ),
-        fetch(
-          `https://mim-backend-b5cd.onrender.com/fees/get/${admissionNo}`
-        ),
-      ]);
+        const [fredboxRes, mimRes] = await Promise.allSettled([
+          fetch(`https://fredbox-backend.onrender.com/fees/get/${admissionNo}`),
+          fetch(`https://mim-backend-b5cd.onrender.com/fees/get/${admissionNo}`),
+        ]);
 
-      let feeData = null;
+        let feeData = null;
 
-      // ✅ Fredbox first
-      if (fredboxRes.status === "fulfilled") {
-        const data = await fredboxRes.value.json();
-        if (data.success && data.data) {
-          feeData = data.data;
+        // ✅ Fredbox first
+        if (fredboxRes.status === "fulfilled") {
+          const data = await fredboxRes.value.json();
+          if (data.success && data.data) {
+            feeData = data.data;
+          }
         }
-      }
 
-      // ✅ Fallback to MIM
-      if (!feeData && mimRes.status === "fulfilled") {
-        const data = await mimRes.value.json();
-        if (data.success && data.data) {
-          feeData = data.data;
+        // ✅ Fallback to MIM
+        if (!feeData && mimRes.status === "fulfilled") {
+          const data = await mimRes.value.json();
+          if (data.success && data.data) {
+            feeData = data.data;
+          }
         }
+
+        if (!feeData) return;
+
+        const due = Number(feeData.totalDue) || 0;
+        const paid = Number(feeData.totalPaid) || 0;
+
+        setFeeInfo({ due, paid });
+
+        setNotifications((prev) => {
+          const filtered = prev.filter((n) => n.id !== "fee-info");
+
+          const feeNotification = {
+            id: "fee-info",
+            type: "fee",
+            paid,
+            due,
+            updatedAt: feeData.updatedAt,
+            priorityDate: feeData.updatedAt,
+          };
+
+          return [...filtered, feeNotification].sort(
+            (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
+          );
+        });
+      } catch (err) {
+        console.error("❌ Fee fetch error", err);
       }
+    };
 
-      if (!feeData) return;
-
-      const due = Number(feeData.totalDue) || 0;
-      const paid = Number(feeData.totalPaid) || 0;
-
-      setFeeInfo({ due, paid });
-
-      setNotifications((prev) => {
-        const filtered = prev.filter((n) => n.id !== "fee-info");
-
-        const feeNotification = {
-          id: "fee-info",
-          type: "fee",
-          paid,
-          due,
-          updatedAt: feeData.updatedAt,
-          priorityDate: feeData.updatedAt,
-        };
-
-        return [...filtered, feeNotification].sort(
-          (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
-        );
-      });
-
-    } catch (err) {
-      console.error("❌ Fee fetch error", err);
-    }
-  };
-
-  fetchFeeDetails();
-}, []);
-
+    fetchFeeDetails();
+  }, []);
 
   // ===============================
   // UPDATE FEE INFO FOR MESSCUT
@@ -400,145 +398,133 @@ useEffect(() => {
   // ===============================
   // UPDATE MESSCUT PARENT STATUS
   // ===============================
- const updateParentStatus = async (id, parentStatus) => {
-  try {
-    console.log("Updating Parent Status for ID:", id);
+  const updateParentStatus = async (id, parentStatus) => {
+    try {
+      console.log("Updating Parent Status for ID:", id);
 
-    // 🔑 Extract real MongoDB ID (remove prefixes like outing-, messcut-, apology-)
-    const realId = id.includes("-") ? id.split("-").pop() : id;
-    console.log("Using DB ID:", realId);
+      // 🔑 Extract real MongoDB ID (remove prefixes like outing-, messcut-, apology-)
+      const realId = id.includes("-") ? id.split("-").pop() : id;
+      console.log("Using DB ID:", realId);
 
-    /* ================= TRY FREDBOX ================= */
-    let res = await fetch(
-      `https://fredbox-backend.onrender.com/parent-status/${realId}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ parentStatus }),
-      }
-    );
-
-    let data = await res.json();
-
-    if (res.ok && data.success) {
-      // ✅ Update UI
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === id ? { ...n, parentStatus } : n
-        )
+      /* ================= TRY FREDBOX ================= */
+      let res = await fetch(
+        `https://fredbox-backend.onrender.com/parent-status/${realId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parentStatus }),
+        }
       );
-      return;
-    }
 
-    console.warn("⚠️ Fredbox failed, trying MIM backend...");
+      let data = await res.json();
 
-    /* ================= FALLBACK TO MIM ================= */
-    res = await fetch(
-      `https://mim-backend-b5cd.onrender.com/parent-status/${realId}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ parentStatus }),
+      if (res.ok && data.success) {
+        // ✅ Update UI
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, parentStatus } : n))
+        );
+        return;
       }
-    );
 
-    data = await res.json();
+      console.warn("⚠️ Fredbox failed, trying MIM backend...");
 
-    if (res.ok && data.success) {
-      // ✅ Update UI
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === id ? { ...n, parentStatus } : n
-        )
+      /* ================= FALLBACK TO MIM ================= */
+      res = await fetch(
+        `https://mim-backend-b5cd.onrender.com/parent-status/${realId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parentStatus }),
+        }
       );
-      return;
+
+      data = await res.json();
+
+      if (res.ok && data.success) {
+        // ✅ Update UI
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, parentStatus } : n))
+        );
+        return;
+      }
+
+      // ❌ Both backends failed
+      alert(data?.message || "Invalid request ID");
+    } catch (err) {
+      console.error("❌ Parent status update error", err);
+      alert("Server error. Please try again.");
     }
-
-    // ❌ Both backends failed
-    alert(data?.message || "Invalid request ID");
-
-  } catch (err) {
-    console.error("❌ Parent status update error", err);
-    alert("Server error. Please try again.");
-  }
-};
-
+  };
 
   // ===============================
   // UPDATE OUTING PARENT STATUS
   // ===============================
- const updateOutingParentStatus = async (id, status) => {
-  try {
-    console.log("Updating Outing Parent Status:", id, status);
+  const updateOutingParentStatus = async (id, status) => {
+    try {
+      console.log("Updating Outing Parent Status:", id, status);
 
-    // 🔑 Extract real DB ID (remove "outing-" prefix if present)
-    const realId = id.includes("-") ? id.split("-").pop() : id;
-    console.log("Using DB ID:", realId);
+      // 🔑 Extract real DB ID (remove "outing-" prefix if present)
+      const realId = id.includes("-") ? id.split("-").pop() : id;
+      console.log("Using DB ID:", realId);
 
-    /* ================= TRY FREDBOX ================= */
-    let res = await fetch(
-      `https://fredbox-backend.onrender.com/outing/parent/${realId}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      }
-    );
-
-    let data = await res.json();
-    console.log("Fredbox outing update:", data);
-
-    if (res.ok && data.success) {
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === `outing-${realId}`
-            ? { ...n, parentStatus: status }
-            : n
-        )
+      /* ================= TRY FREDBOX ================= */
+      let res = await fetch(
+        `https://fredbox-backend.onrender.com/outing/parent/${realId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        }
       );
-      alert(`Outing request ${status.toLowerCase()} successfully!`);
-      return;
-    }
 
-    console.warn("⚠️ Fredbox failed, trying MIM...");
+      let data = await res.json();
+      console.log("Fredbox outing update:", data);
 
-    /* ================= FALLBACK TO MIM ================= */
-    res = await fetch(
-      `https://mim-backend-b5cd.onrender.com/outing/parent/${realId}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+      if (res.ok && data.success) {
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === `outing-${realId}` ? { ...n, parentStatus: status } : n
+          )
+        );
+        alert(`Outing request ${status.toLowerCase()} successfully!`);
+        return;
       }
-    );
 
-    data = await res.json();
-    console.log("MIM outing update:", data);
+      console.warn("⚠️ Fredbox failed, trying MIM...");
 
-    if (res.ok && data.success) {
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.id === `outing-${realId}`
-            ? { ...n, parentStatus: status }
-            : n
-        )
+      /* ================= FALLBACK TO MIM ================= */
+      res = await fetch(
+        `https://mim-backend-b5cd.onrender.com/outing/parent/${realId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        }
       );
-      alert(`Outing request ${status.toLowerCase()} successfully!`);
-      return;
+
+      data = await res.json();
+      console.log("MIM outing update:", data);
+
+      if (res.ok && data.success) {
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === `outing-${realId}` ? { ...n, parentStatus: status } : n
+          )
+        );
+        alert(`Outing request ${status.toLowerCase()} successfully!`);
+        return;
+      }
+
+      // ❌ Both failed
+      alert(data?.message || "Invalid outing request ID");
+    } catch (err) {
+      console.error("❌ Outing parent status update error", err);
+      alert("Failed to update. Please try again.");
     }
-
-    // ❌ Both failed
-    alert(data?.message || "Invalid outing request ID");
-
-  } catch (err) {
-    console.error("❌ Outing parent status update error", err);
-    alert("Failed to update. Please try again.");
-  }
-};
-
+  };
 
   // ===============================
-  // INJECT CSS STYLES
+  // INJECT CSS STYLES (UPDATED FOR APOLOGY COUNT BADGE)
   // ===============================
   useEffect(() => {
     const style = document.createElement("style");
@@ -568,6 +554,7 @@ useEffect(() => {
 
       .nav-btn {
         flex: 1;
+        position: relative;
         text-align: center;
         padding: 8px 0;
         font-size: 13px;
@@ -589,6 +576,25 @@ useEffect(() => {
         transform: scale(1.04);
       }
 
+      /* APOLOGY COUNT BADGE */
+      .apology-badge {
+        position: absolute;
+        top: -8px;
+        right: -5px;
+        background: #ff6b6b;
+        color: white;
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      }
+
       @media(max-width:480px){
         .nav-btn {
           font-size: 11px;
@@ -597,6 +603,13 @@ useEffect(() => {
         }
         .nav-container {
           gap: 4px;
+        }
+        .apology-badge {
+          font-size: 9px;
+          min-width: 16px;
+          height: 16px;
+          top: -6px;
+          right: -4px;
         }
       }
 
@@ -627,6 +640,7 @@ useEffect(() => {
       .notif-header {
         display: flex;
         justify-content: space-between;
+        align-items: flex-start;
       }
 
       .notif-type {
@@ -683,10 +697,21 @@ useEffect(() => {
       /* APOLOGY CARD */
       .apology-card {
         border-left: 4px solid #9370db;
+        position: relative;
       }
 
       .apology-title {
         color: #9370db;
+      }
+
+      /* APOLOGY STATUS INDICATOR */
+      .apology-status {
+        display: inline-block;
+        margin-left: 10px;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 600;
       }
 
       /* ACTION BUTTONS */
@@ -738,7 +763,7 @@ useEffect(() => {
   ).sort((a, b) => new Date(b.priorityDate) - new Date(a.priorityDate));
 
   // ===============================
-  // RENDER NOTIFICATIONS
+  // RENDER NOTIFICATIONS (UPDATED FOR APOLOGY)
   // ===============================
   const renderNotification = (item) => {
     switch (item.type) {
@@ -763,28 +788,54 @@ useEffect(() => {
 
       case "apology":
         const displayDate =
-          item.date || new Date(item.createdAt).toLocaleDateString("en-IN");
+          item.date ||
+          new Date(item.createdAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+
+        // Determine status color
+        let statusClass = "pending";
+        let statusText = item.status || "Pending";
+
+        if (item.status?.toLowerCase() === "approved") {
+          statusClass = "approved";
+          statusText = "Approved";
+        } else if (item.status?.toLowerCase() === "rejected") {
+          statusClass = "rejected";
+          statusText = "Rejected";
+        }
+
         return (
           <div key={item.id} className="notif-card apology-card">
             <div className="notif-header">
-              <div className="notif-type apology-title">📄 Apology Request</div>
+              <div className="notif-type apology-title">
+                📄 Apology Request
+                <span className={`apology-status ${statusClass}`}>
+                  {statusText}
+                </span>
+              </div>
               <div className="notif-date">{displayDate}</div>
             </div>
             <div className="notif-body">
               <div>
-                <span className="notif-label">Reason:</span> {item.reason}
+                <span className="notif-label">Reason:</span>{" "}
+                {item.reason || "No reason provided"}
+              </div>
+              <div style={{ marginTop: "5px", fontSize: "13px", color: "#666" }}>
+                <span className="notif-label">Submitted:</span>{" "}
+                {new Date(item.createdAt).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
             </div>
-            <div
-              className={`status-badge ${
-                item.status === "Approved"
-                  ? "approved"
-                  : item.status === "Rejected"
-                  ? "rejected"
-                  : "pending"
-              }`}
-            >
-              STATUS : {item.status}
+            <div className={`status-badge ${statusClass}`}>
+              STATUS: {statusText.toUpperCase()}
             </div>
           </div>
         );
@@ -833,14 +884,23 @@ useEffect(() => {
           <div key={item.id} className="notif-card">
             <div className="notif-header">
               <div className="notif-type">Messcut Notification</div>
-              <div className="notif-date">{item.date}</div>
+              <div className="notif-date">
+                {item.date ||
+                  new Date(item.createdAt).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+              </div>
             </div>
             <div className="notif-body">
               <div>
-                <span className="notif-label">Leaving:</span> {item.leavingDate}
+                <span className="notif-label">Leaving:</span>{" "}
+                {item.leavingDate || "Not specified"}
               </div>
               <div>
-                <span className="notif-label">Return:</span> {item.returnDate}
+                <span className="notif-label">Return:</span>{" "}
+                {item.returnDate || "Not specified"}
               </div>
               <div>
                 <span className="notif-label">Messcut count:</span>{" "}
@@ -970,7 +1030,7 @@ useEffect(() => {
   };
 
   // ===============================
-  // MAIN RENDER
+  // MAIN RENDER (UPDATED FOR APOLOGY COUNT)
   // ===============================
   return (
     <div className="dashboard-wrapper">
@@ -984,16 +1044,26 @@ useEffect(() => {
               onClick={() => setActiveFilter(category)}
             >
               {category.charAt(0).toUpperCase() + category.slice(1)}
+              {category === "apology" && apologyCount > 0 && (
+                <span className="apology-badge">{apologyCount}</span>
+              )}
             </button>
           )
         )}
       </div>
 
-      <h2 className="section-title">Notifications</h2>
+      <h2 className="section-title">
+        Notifications
+        {activeFilter === "apology" && apologyCount > 0 && (
+          <span style={{ fontSize: "16px", marginLeft: "10px", color: "#9370db" }}>
+            ({apologyCount} apology request{apologyCount !== 1 ? "s" : ""})
+          </span>
+        )}
+      </h2>
 
       {filtered.length === 0 ? (
         <div className="notif-card no-notifications">
-          No notifications found
+          No {activeFilter !== "all" ? activeFilter : ""} notifications found
         </div>
       ) : (
         filtered.map((item) => renderNotification(item))

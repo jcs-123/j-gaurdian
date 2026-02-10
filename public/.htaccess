@@ -1,0 +1,25 @@
+# ---------------------------
+# React SPA Refresh Fix
+# ---------------------------
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # If the request is NOT a real file or folder
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Redirect everything to index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# ---------------------------
+# Cache Control (optional)
+# Helps performance, no data loss
+# ---------------------------
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg)$">
+    Header set Cache-Control "max-age=31536000, public"
+  </FilesMatch>
+</IfModule>
