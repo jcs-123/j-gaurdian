@@ -5,6 +5,7 @@ function Dashboard() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [feeInfo, setFeeInfo] = useState(null);
   const [apologyCount, setApologyCount] = useState(0); // New state for apology count
+const [apologyNotifications, setApologyNotifications] = useState([]);
 
   // ===============================
   // MESSCUT DAY CALCULATION
@@ -282,18 +283,9 @@ function Dashboard() {
           }),
           priorityDate: item.createdAt,
         }));
+setApologyNotifications(apologyNotifications);
 
-        setNotifications((prev) => {
-          // Remove existing apology notifications first
-          const filteredPrev = prev.filter((n) => n.type !== "apology");
-          const merged = [...filteredPrev, ...apologyNotifications];
-          const unique = merged.filter(
-            (v, i, a) => a.findIndex((t) => t.id === v.id) === i
-          );
-          return unique.sort(
-            (a, b) => new Date(b.priorityDate) - new Date(a.priorityDate)
-          );
-        });
+      
       } catch (err) {
         console.error("❌ Apology notification error:", err);
       }
@@ -756,11 +748,13 @@ function Dashboard() {
   // ===============================
   // FILTER NOTIFICATIONS
   // ===============================
-  const filtered = (
-    activeFilter === "all"
-      ? notifications
-      : notifications.filter((n) => n.type === activeFilter)
-  ).sort((a, b) => new Date(b.priorityDate) - new Date(a.priorityDate));
+const filtered = (
+  activeFilter === "apology"
+    ? apologyNotifications
+    : activeFilter === "all"
+    ? notifications.filter((n) => n.type !== "apology")
+    : notifications.filter((n) => n.type === activeFilter)
+).sort((a, b) => new Date(b.priorityDate) - new Date(a.priorityDate));
 
   // ===============================
   // RENDER NOTIFICATIONS (UPDATED FOR APOLOGY)
